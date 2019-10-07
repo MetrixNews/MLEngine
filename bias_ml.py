@@ -53,6 +53,8 @@ import os.path
 import logging.config
 import gc
 
+import pickle
+
 #Import Data & Preparation
 def main():
    news_corpus = []
@@ -163,6 +165,7 @@ def main():
 
    logging.info(f'Dropping Features: {np.where(rfecv.support_ == False)[0]}')
    x_best = rfecv.transform(x_train)
+   x_test = rfecv.transform(x_test)
 
    logging.info("Preforming clf.fit")
    clf.fit(x_best, y_train)
@@ -176,6 +179,8 @@ def main():
    cm = confusion_matrix(y_test, train_predictions, labels=None, sample_weight=None)
    logging.info(f"Confusion Matrix: \n{cm}")
 
+   pickle.dump(clf, open('..\data\GradientBoosting.sav', 'wb'))
+
    #plotting
    logging.info("Plotting rfecv results")
    fig = plt.figure(figsize=(16, 9))
@@ -183,7 +188,7 @@ def main():
    plt.xlabel('Number of features selected', fontsize=14, labelpad=20)
    plt.ylabel('% Correct Classification', fontsize=14, labelpad=20)
    plt.plot(range(1, len(rfecv.grid_scores_) + 1), rfecv.grid_scores_, color='#303F9F', linewidth=3)
-   plt.savefig('data/Recursive Feature Elimination With Cross-Validation.png')
+   plt.savefig('../data/Recursive Feature Elimination With Cross-Validation.png')
    plt.close(fig)
 
    dset = pd.DataFrame()
@@ -197,7 +202,7 @@ def main():
    plt.barh(y=dset['attr'], width=dset['importance'], color='#1976D2')
    plt.title('RFECV - Feature Importances', fontsize=20, fontweight='bold', pad=20)
    plt.xlabel('Importance', fontsize=14, labelpad=20)
-   plt.savefig('data/RFECV - Feature Importance.png')
+   plt.savefig('../data/RFECV - Feature Importance.png')
    plt.close(fig2)
 
    logging.info("="*30)
