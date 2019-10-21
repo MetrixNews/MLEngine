@@ -48,93 +48,86 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import roc_auc_score
 
-import sys
-sys.path.append('../')
-import Common.Logging as log
+import logging
+import os.path
+import logging.config
+
 import pickle
 
 #Import Data & Preparation
 def main():
-   news_corpus = []
 
    logging.info("Inserting articles into news_corpus[]")
-   X = pd.read_csv('../data/NewsCourpusRFECV.csv')
-   Y = pd.read_csv('../data/articles_trimmed.csv')
+   X = pd.read_csv('../data/NewsCourpusRFECV.csv',encoding='utf-8')
+   Y = pd.read_csv('../data/articles_trimmed.csv', error_bad_lines=False)
 
-   #Cross Validation Data Partition
    Y = Y['political_bias']
 
-   logging.info("Preforming get_dummie on X")
+   logging.info(X.shape)
+   logging.info(Y.shape)
 
-   clf = GradientBoostingClassifier(learning_rate=0.2, n_estimators=70, min_samples_split=500, min_samples_leaf=50, max_depth=20, max_features='sqrt', subsample=0.8)
+   parameters = {
+         'n_estimators':
+         [
+            50, 75, 100, 250, 500
+         ],
+         'learning_rate':
+         [
+            1.0, 0.75, 0.50, 0.25, 0.10, 0.01
+         ],
+         'min_samples_split':
+         [
+            0.1, 1.0, 10
+         ],
+         'max_depth':
+         [
+            1, 32, 32
+         ],
+         'max_features':
+         [
+            'auto', 'log2', 'None'
+         ]
+   }
 
    name = 'Gradient Boosting'
 
-   #rfecv = RFECV(estimator=clf, step=50, cv=StratifiedKFold(5), scoring='accuracy', n_jobs=-1)
-
    logging.info(f"Running {name} Classifier")
 
-   logging.info("Running RFECV")
-
-   #rfecv.fit(X, Y)
-
-   #logging.info('Optimal number of features: {}'.format(rfecv.n_features_))
-
-   #logging.info(f'Dropping Features: {np.where(rfecv.support_ == False)[0]}')
-   #X.drop(X.columns[np.where(rfecv.support_ == False)[0]], axis=1, inplace=True)
-
-   #export_csv = X.to_csv(r'../Data/NewsCourpusRFECV.csv', index=None, header=True)
+   logging.info("Un-pickling Classifier")
+   gbc = pickle.load(open('../data/GradientBoosting.sav', 'rb'))
 
    logging.info("Splitting X and Y into x_train, x_test, y_train, y_test. test_size=0.22, random_state=42")
    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.22, random_state=42, shuffle=True)
 
    logging.info("Preforming clf.fit")
-   clf.fit(x_train, y_train)
+   gbc.fit(x_train, y_train)
 
-   # logging.info("creating train_prefictions from clf.predict(x_train)")
-   # train_predictions = clf.predict(x_test)
+   clf = GridSearchCV(estimator=gbc, param_grid=parameters, cv=StratifiedKFold(5))
 
-   # f1 = f1_score(y_test, train_predictions, labels=None, pos_label=1, average='micro', sample_weight=None)
-   # logging.info("Results (Accuracy): {:.4%}".format(f1))
+   logging.info("creating train_prefictions from clf.predict(X)")
+   train_predictions = clf.predict(x_test)
 
-   # cm = confusion_matrix(y_test, train_predictions, labels=None, sample_weight=None)
-   # logging.info(f"Confusion Matrix: \n{cm}")
+   f1 = f1_score(y_test, train_predictions, labels=None, pos_label=1, average='micro', sample_weight=None)
+   logging.info("Results (Accuracy): {:.4%}".format(f1))
 
-   pickle.dump(clf, open('../data/GradientBoosting.sav', 'wb'))
-
-   # #plotting
-   # logging.info("Plotting rfecv results")
-   # fig = plt.figure(figsize=(16,14))
-   # plt.title('Recursive Feature Elimination with Cross-Validation', fontsize=18, fontweight='bold', pad=20)
-   # plt.xlabel('Number of features selected', fontsize=14, labelpad=1)
-   # plt.ylabel('% Correct Classification', fontsize=14, labelpad=1)
-   # plt.plot(range(1, len(rfecv.grid_scores_) + 1), rfecv.grid_scores_, color='#303F9F', linewidth=3)
-   # plt.savefig('../data/Recursive Feature Elimination With Cross-Validation.png')
-   # plt.close(fig)
-
-   # dset = pd.DataFrame()
-   # dset['attr'] = X.columns
-   # dset['importance'] = rfecv.estimator_.feature_importances_
-
-   # dset = dset.sort_values(by='importance', ascending=False)
-   # fig2 = plt.figure(figsize=(30, 100))
-   # plt.barh(y=dset['attr'], width=dset['importance'], color='#1976D2')
-   # plt.title('RFECV - Feature Importances', fontsize=20, fontweight='bold', pad=20)
-   # plt.xlabel('Importance', fontsize=14, labelpad=20)
-   # plt.savefig('../data/RFECV - Feature Importance.png')
-   # plt.close(fig2)
+   cm = confusion_matrix(y_test, train_predictions, labels=None, sample_weight=None)
+   logging.info(f"Confusion Matrix: \n{cm}")
 
    logging.info("="*30)
 
-
 if __name__ == "__main__":
-   logging = log.Logger('../logs/ml.log', 'ML Engine')
+   logging.basicConfig(level=logging.INFO,
+   format='%(levelname)s:%(asctime)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+   handlers=[
+      logging.FileHandler("../logs/ml.log"),
+      logging.StreamHandler()
+   ])
 
-   logging.info('Bias_ml started')
+   logging.info('Bias_ml.py started')
 
    main()
 
-   logging.info('Bias_ml Finished')
+   logging.info('Bias_ml.py Finished')
 
    logging.shutdown()
 
